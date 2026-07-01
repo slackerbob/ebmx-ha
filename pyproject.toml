@@ -1,0 +1,22 @@
+[project]
+name = "ebmx-ha"
+version = "0.1.0"
+description = "EBMX X-Series (X-9000) Bluetooth telemetry — Home Assistant integration and standalone library"
+requires-python = ">=3.11"
+# The library itself (protocol/telemetry/client) needs only the standard library.
+# bleak is required only to run the standalone CLI or the real HA integration.
+dependencies = []
+
+[project.optional-dependencies]
+cli = ["bleak>=0.21"]
+test = ["pytest>=8", "pytest-asyncio>=0.23"]
+# For the Home Assistant integration tests (config flow, coordinator).
+test-ha = ["pytest-homeassistant-custom-component"]
+
+[tool.pytest.ini_options]
+# Pure-library tests run with no Home Assistant present; the HA-only test modules
+# skip themselves via importorskip.
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

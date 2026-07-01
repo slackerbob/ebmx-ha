@@ -1,0 +1,52 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "bluetooth_confirm": {
+        "description": "Add the EBMX bike {name}?"
+      },
+      "user": {
+        "description": "Select the EBMX bike to add.",
+        "data": {
+          "address": "Bluetooth device"
+        }
+      }
+    },
+    "abort": {
+      "no_devices_found": "No EBMX bikes found. Make sure the bike is powered on and within range of a Bluetooth adapter or proxy.",
+      "already_configured": "This bike is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "EBMX options",
+        "description": "Optionally set the battery's series cell count for the voltage-based state-of-charge estimate. Leave blank to infer it from the controller's voltage cut-off.",
+        "data": {
+          "cells": "Series cell count"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_voltage": { "name": "Battery voltage" },
+      "battery_soc_controller": { "name": "Battery (controller)" },
+      "battery_soc_estimate": { "name": "Battery (estimate)" },
+      "input_current": { "name": "Input current" },
+      "motor_current": { "name": "Motor current" },
+      "power": { "name": "Power" },
+      "speed": { "name": "Speed" },
+      "rpm": { "name": "Motor RPM" },
+      "duty_cycle": { "name": "Duty cycle" },
+      "temp_fet": { "name": "Controller temperature" },
+      "temp_motor": { "name": "Motor temperature" },
+      "throttle": { "name": "Throttle" },
+      "odometer": { "name": "Odometer" },
+      "fault": { "name": "Fault code" }
+    },
+    "binary_sensor": {
+      "present": { "name": "Present" }
+    }
+  }
+}
