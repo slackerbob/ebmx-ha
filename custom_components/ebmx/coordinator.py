@@ -88,12 +88,13 @@ class EbmxCoordinator(ActiveBluetoothDataUpdateCoordinator[EbmxData]):
 		)
 		)
 
-	async def _async_poll(self, service_info: bluetooth.BluetoothServiceInfoBleak) -> EbmxData:
+	async def _async_poll(self) -> EbmxData:
 		"""Connect (via proxy if needed), read config once, poll telemetry."""
-		ble_device = (
-			bluetooth.async_ble_device_from_address(self.hass, self.address, connectable=True)
-			or service_info.device
+		ble_device = bluetooth.async_ble_device_from_address(
+			self.hass, self.address, connectable=True
 		)
+		if ble_device is None:
+			raise RuntimeError(f"{self.address}: BLE device not currently available")
 
 		client = await establish_connection(
 			BleakClientWithServiceCache, ble_device, self.address
