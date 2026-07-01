@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from homeassistant.components.bluetooth.active_update_coordinator import (
-	ActiveBluetoothCoordinatorEntity,
-)
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .coordinator import EbmxCoordinator
 
 
-class EbmxEntity(ActiveBluetoothCoordinatorEntity[EbmxCoordinator]):
+class EbmxEntity(CoordinatorEntity[EbmxCoordinator]):
 	"""Base entity: names/grouping and cached-value availability.
 
 	The coordinator keeps its last successful :class:`EbmxData` in ``self.data`` even
