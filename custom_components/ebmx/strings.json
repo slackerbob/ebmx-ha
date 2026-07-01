@@ -6,9 +6,16 @@
 				"description": "Add the EBMX bike {name}?"
 			},
 			"user": {
-				"description": "Select the EBMX bike to add.",
+				"description": "Select the EBMX bike to add, or switch to manual address entry.",
 				"data": {
-					"address": "Bluetooth device"
+					"address": "Bluetooth device",
+					"use_manual": "Enter address manually instead"
+				}
+			},
+			"manual": {
+				"description": "Enter the Bluetooth MAC address of the EBMX bike.",
+				"data": {
+					"address": "Bluetooth address"
 				}
 			}
 		},
@@ -30,53 +37,23 @@
 	},
 	"entity": {
 		"sensor": {
-			"battery_voltage": {
-				"name": "Battery voltage"
-			},
-			"battery_soc_controller": {
-				"name": "Battery (controller)"
-			},
-			"battery_soc_estimate": {
-				"name": "Battery (estimate)"
-			},
-			"input_current": {
-				"name": "Input current"
-			},
-			"motor_current": {
-				"name": "Motor current"
-			},
-			"power": {
-				"name": "Power"
-			},
-			"speed": {
-				"name": "Speed"
-			},
-			"rpm": {
-				"name": "Motor RPM"
-			},
-			"duty_cycle": {
-				"name": "Duty cycle"
-			},
-			"temp_fet": {
-				"name": "Controller temperature"
-			},
-			"temp_motor": {
-				"name": "Motor temperature"
-			},
-			"throttle": {
-				"name": "Throttle"
-			},
-			"odometer": {
-				"name": "Odometer"
-			},
-			"fault": {
-				"name": "Fault code"
-			}
+			"battery_voltage": { "name": "Battery voltage" },
+			"battery_soc_controller": { "name": "Battery (controller)" },
+			"battery_soc_estimate": { "name": "Battery (estimate)" },
+			"input_current": { "name": "Input current" },
+			"motor_current": { "name": "Motor current" },
+			"power": { "name": "Power" },
+			"speed": { "name": "Speed" },
+			"rpm": { "name": "Motor RPM" },
+			"duty_cycle": { "name": "Duty cycle" },
+			"temp_fet": { "name": "Controller temperature" },
+			"temp_motor": { "name": "Motor temperature" },
+			"throttle": { "name": "Throttle" },
+			"odometer": { "name": "Odometer" },
+			"fault": { "name": "Fault code" }
 		},
 		"binary_sensor": {
-			"present": {
-				"name": "Present"
-			}
+			"present": { "name": "Present" }
 		}
 	}
 }

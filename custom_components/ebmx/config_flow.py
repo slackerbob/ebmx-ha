@@ -33,6 +33,12 @@ def _title(info: BluetoothServiceInfoBleak) -> str:
 	return info.name or f"EBMX {info.address}"
 
 
+def _looks_like_ebmx(info: BluetoothServiceInfoBleak) -> bool:
+	"""Best-effort fallback matcher for bikes HA can see but can't UUID-match."""
+	name = (info.name or "").lower()
+	return "ebmx" in name
+
+
 class EbmxConfigFlow(ConfigFlow, domain=DOMAIN):
 	"""Handle a config flow for EBMX bikes."""
 
@@ -73,6 +79,9 @@ class EbmxConfigFlow(ConfigFlow, domain=DOMAIN):
 	) -> ConfigFlowResult:
 		"""Add a bike by picking from currently-visible devices."""
 		if user_input is not None:
+			if user_input.get("use_manual"):
+				return await self.async_step_manual()
+
 			address = user_input[CONF_ADDRESS]
 			await self.async_set_unique_id(address, raise_on_progress=False)
 			self._abort_if_unique_id_configured()
@@ -85,11 +94,12 @@ class EbmxConfigFlow(ConfigFlow, domain=DOMAIN):
 		for info in async_discovered_service_info(self.hass):
 			if info.address in current or info.address in self._discovered:
 				continue
-			if NUS_SERVICE_UUID in info.service_uuids:
+			service_uuids = {uuid.lower() for uuid in info.service_uuids}
+			if NUS_SERVICE_UUID.lower() in service_uuids or _looks_like_ebmx(info):
 				self._discovered[info.address] = info
 
 		if not self._discovered:
-			return self.async_abort(reason="no_devices_found")
+			return await self.async_step_manual()
 
 		return self.async_show_form(
 			step_id="user",
@@ -97,9 +107,35 @@ class EbmxConfigFlow(ConfigFlow, domain=DOMAIN):
 				{
 					vol.Required(CONF_ADDRESS): vol.In(
 						{addr: _title(info) for addr, info in self._discovered.items()}
-					)
+					),
+					vol.Optional("use_manual", default=False): bool,
 				}
 			),
+		)
+
+	async def async_step_manual(
+		self, user_input: dict[str, Any] | None = None
+	) -> ConfigFlowResult:
+		"""Add a bike by manually entering its Bluetooth address."""
+		errors: dict[str, str] = {}
+
+		if user_input is not None:
+			address = user_input[CONF_ADDRESS].upper()
+			await self.async_set_unique_id(address, raise_on_progress=False)
+			self._abort_if_unique_id_configured()
+			return self.async_create_entry(
+				title=f"EBMX {address}",
+				data={CONF_ADDRESS: address},
+			)
+
+		return self.async_show_form(
+			step_id="manual",
+			data_schema=vol.Schema(
+				{
+					vol.Required(CONF_ADDRESS): str,
+				}
+			),
+			errors=errors,
 		)
 
 	@staticmethod
