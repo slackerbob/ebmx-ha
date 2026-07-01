@@ -200,13 +200,31 @@ class EbmxSensor(EbmxEntity, RestoreSensor):
 	def native_value(self) -> float | int | None:
 		if self.coordinator.data is not None:
 			value = self.entity_description.value_fn(self.coordinator.data)
+			_LOGGER.debug(
+				"%s native_value from coordinator data=%s",
+				self.entity_id,
+				value,
+			)
 			return value
+		_LOGGER.debug(
+			"%s native_value from restored value=%s",
+			self.entity_id,
+			self._restored_value,
+		)
 		return self._restored_value
 
 	@property
 	def available(self) -> bool:
 		# Keep displaying cached/restored values even when the bike isn't present.
-		return self.coordinator.data is not None or self._restored_value is not None
+		result = self.coordinator.data is not None or self._restored_value is not None
+		_LOGGER.debug(
+			"%s available=%s coordinator_has_data=%s restored_value=%s",
+			self.entity_id,
+			result,
+			self.coordinator.data is not None,
+			self._restored_value,
+		)
+		return result
 
 	@callback
 	def _handle_coordinator_update(self) -> None:

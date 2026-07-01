@@ -183,6 +183,8 @@ class EbmxCoordinator(ActiveBluetoothDataUpdateCoordinator[EbmxData]):
 
 		soc = estimate_soc_percent(telemetry.battery_voltage, self.cells, self._config)
 		self.last_success_time = dt_util.utcnow()
+		data = EbmxData(telemetry=telemetry, config=self._config, soc_estimate=soc)
+
 		_LOGGER.debug(
 			"%s: poll complete soc_estimate=%s cells=%s last_success_time=%s",
 			self.address,
@@ -190,4 +192,8 @@ class EbmxCoordinator(ActiveBluetoothDataUpdateCoordinator[EbmxData]):
 			self.cells,
 			self.last_success_time,
 		)
-		return EbmxData(telemetry=telemetry, config=self._config, soc_estimate=soc)
+
+		self.async_set_updated_data(data)
+		_LOGGER.debug("%s: published updated coordinator data", self.address)
+
+		return data
