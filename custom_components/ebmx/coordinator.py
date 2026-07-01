@@ -67,6 +67,23 @@ class EbmxCoordinator(ActiveBluetoothDataUpdateCoordinator[EbmxData]):
 		"""One-off setup hook (kept for symmetry / future use)."""
 		_LOGGER.debug("Coordinator async_init: address=%s", self.address)
 
+	async def async_poll_now(self) -> None:
+		"""Force one poll now if the bike is currently connectable.
+
+		Used at startup/reload: the advertisement-driven poll only triggers on the next
+		advertisement, so this gives us data right away when the bike is already present.
+		No-op (and quiet) when the bike isn't currently visible.
+		"""
+		if bluetooth.async_ble_device_from_address(
+			self.hass, self.address, connectable=True
+		) is None:
+			_LOGGER.debug("%s: async_poll_now skipped; bike not present", self.address)
+			return
+		try:
+			await self._async_poll()
+		except Exception:  # noqa: BLE001
+			_LOGGER.debug("%s: initial poll failed", self.address, exc_info=True)
+
 	@property
 	def device_info(self) -> DeviceInfo:
 		"""Device entry for this bike (one HA device per bike)."""

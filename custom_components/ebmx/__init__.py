@@ -48,6 +48,27 @@ async def async_setup_entry(hass: "HomeAssistant", entry: "ConfigEntry") -> bool
 	_LOGGER.debug("Forwarded entry setups for entry_id=%s platforms=%s", entry.entry_id, PLATFORMS)
 
 	entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
+
+	# Advertisement-driven polling only fires on the *next* advertisement after HA is
+	# running, so at a cold start the entities can stay blank until something nudges it
+	# (which is why reloading the integration appeared to be required). Kick off one poll
+	# as soon as HA has finished starting — or immediately, if we're already running
+	# (e.g. this is a reload or the bike was added after startup).
+	from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+	from homeassistant.core import CoreState
+
+	async def _kickoff_initial_poll(_event=None) -> None:
+		await coordinator.async_poll_now()
+
+	if hass.state is CoreState.running:
+		entry.async_create_background_task(
+			hass, _kickoff_initial_poll(), f"ebmx_initial_poll_{entry.entry_id}"
+		)
+	else:
+		entry.async_on_unload(
+			hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _kickoff_initial_poll)
+		)
+
 	return True
 
 

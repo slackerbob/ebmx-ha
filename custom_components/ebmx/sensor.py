@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from homeassistant.components.sensor import (
 	RestoreSensor,
 	SensorDeviceClass,
+	SensorEntity,
 	SensorEntityDescription,
 	SensorStateClass,
 )
@@ -169,7 +170,9 @@ async def async_setup_entry(
 	"""Set up EBMX sensors for a bike."""
 	coordinator: EbmxCoordinator = hass.data[DOMAIN][entry.entry_id]
 	_LOGGER.debug("Setting up %d EBMX sensors for entry_id=%s", len(SENSORS), entry.entry_id)
-	async_add_entities(EbmxSensor(coordinator, desc) for desc in SENSORS)
+	entities: list[SensorEntity] = [EbmxSensor(coordinator, desc) for desc in SENSORS]
+	entities.append(EbmxLastUpdatedSensor(coordinator))
+	async_add_entities(entities)
 
 
 class EbmxSensor(EbmxEntity, RestoreSensor):
@@ -237,3 +240,28 @@ class EbmxSensor(EbmxEntity, RestoreSensor):
 			self.native_value,
 		)
 		super()._handle_coordinator_update()
+
+
+class EbmxLastUpdatedSensor(EbmxEntity, SensorEntity):
+	"""When the bike's telemetry was last successfully read.
+
+	Because the measurement sensors intentionally keep showing their last value while the
+	bike is off, this timestamp is the clearest "is the data live?" signal — it updates on
+	every successful poll. (The Present connectivity sensor also reflects presence, but is
+	driven by Bluetooth advertisements and only flips to off after a long stale timeout.)
+	"""
+
+	_attr_device_class = SensorDeviceClass.TIMESTAMP
+	_attr_translation_key = "last_updated"
+	_attr_entity_category = EntityCategory.DIAGNOSTIC
+
+	def __init__(self, coordinator: EbmxCoordinator) -> None:
+		super().__init__(coordinator, "last_updated")
+
+	@property
+	def native_value(self):
+		return self.coordinator.last_success_time
+
+	@property
+	def available(self) -> bool:
+		return self.coordinator.last_success_time is not None
