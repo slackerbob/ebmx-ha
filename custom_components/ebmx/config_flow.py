@@ -8,6 +8,7 @@ devices.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import voluptuous as vol
@@ -27,6 +28,8 @@ from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 
 from .const import CONF_CELLS, DOMAIN, NUS_SERVICE_UUID
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _title(info: BluetoothServiceInfoBleak) -> str:
@@ -52,6 +55,12 @@ class EbmxConfigFlow(ConfigFlow, domain=DOMAIN):
 		self, discovery_info: BluetoothServiceInfoBleak
 	) -> ConfigFlowResult:
 		"""Handle a bike discovered over Bluetooth."""
+		_LOGGER.debug(
+			"Bluetooth discovery: address=%s name=%s uuids=%s",
+			discovery_info.address,
+			discovery_info.name,
+			discovery_info.service_uuids,
+		)
 		await self.async_set_unique_id(discovery_info.address)
 		self._abort_if_unique_id_configured()
 		self._discovery = discovery_info
@@ -64,6 +73,7 @@ class EbmxConfigFlow(ConfigFlow, domain=DOMAIN):
 		"""Confirm adding a discovered bike."""
 		assert self._discovery is not None
 		if user_input is not None:
+			_LOGGER.debug("Bluetooth confirm accepted for address=%s", self._discovery.address)
 			return self.async_create_entry(
 				title=_title(self._discovery),
 				data={CONF_ADDRESS: self._discovery.address},
@@ -80,9 +90,11 @@ class EbmxConfigFlow(ConfigFlow, domain=DOMAIN):
 		"""Add a bike by picking from currently-visible devices."""
 		if user_input is not None:
 			if user_input.get("use_manual"):
+				_LOGGER.debug("User flow switching to manual entry")
 				return await self.async_step_manual()
 
 			address = user_input[CONF_ADDRESS]
+			_LOGGER.debug("User selected discovered device address=%s", address)
 			await self.async_set_unique_id(address, raise_on_progress=False)
 			self._abort_if_unique_id_configured()
 			info = self._discovered[address]
@@ -95,12 +107,22 @@ class EbmxConfigFlow(ConfigFlow, domain=DOMAIN):
 			if info.address in current or info.address in self._discovered:
 				continue
 			service_uuids = {uuid.lower() for uuid in info.service_uuids}
-			if NUS_SERVICE_UUID.lower() in service_uuids or _looks_like_ebmx(info):
+			matched = NUS_SERVICE_UUID.lower() in service_uuids or _looks_like_ebmx(info)
+			_LOGGER.debug(
+				"Inspecting discovered device address=%s name=%s uuids=%s matched=%s",
+				info.address,
+				info.name,
+				info.service_uuids,
+				matched,
+			)
+			if matched:
 				self._discovered[info.address] = info
 
 		if not self._discovered:
+			_LOGGER.debug("No matching discovered devices; falling back to manual entry")
 			return await self.async_step_manual()
 
+		_LOGGER.debug("Found %d candidate devices for manual add", len(self._discovered))
 		return self.async_show_form(
 			step_id="user",
 			data_schema=vol.Schema(
@@ -121,6 +143,7 @@ class EbmxConfigFlow(ConfigFlow, domain=DOMAIN):
 
 		if user_input is not None:
 			address = user_input[CONF_ADDRESS].upper()
+			_LOGGER.debug("Manual address entry: address=%s", address)
 			await self.async_set_unique_id(address, raise_on_progress=False)
 			self._abort_if_unique_id_configured()
 			return self.async_create_entry(
@@ -151,9 +174,9 @@ class EbmxOptionsFlow(OptionsFlow):
 		self, user_input: dict[str, Any] | None = None
 	) -> ConfigFlowResult:
 		if user_input is not None:
-			# Empty string clears the override (fall back to inference).
 			cells = user_input.get(CONF_CELLS)
 			data = {CONF_CELLS: int(cells)} if cells else {}
+			_LOGGER.debug("Options updated for entry_id=%s cells=%s", self.config_entry.entry_id, cells)
 			return self.async_create_entry(title="", data=data)
 
 		current = self.config_entry.options.get(CONF_CELLS, "")

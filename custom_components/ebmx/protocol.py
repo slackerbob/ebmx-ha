@@ -34,100 +34,105 @@ _MAX_BUFFER = 4096
 
 
 def crc16_xmodem(data: bytes) -> int:
-    """CRC-16/XMODEM: poly 0x1021, init 0x0000, no reflection, no final XOR."""
-    crc = 0x0000
-    for b in data:
-        crc ^= b << 8
-        crc &= 0xFFFF
-        for _ in range(8):
-            if crc & 0x8000:
-                crc = ((crc << 1) ^ 0x1021) & 0xFFFF
-            else:
-                crc = (crc << 1) & 0xFFFF
-    return crc
+	"""CRC-16/XMODEM: poly 0x1021, init 0x0000, no reflection, no final XOR."""
+	crc = 0x0000
+	for b in data:
+		crc ^= b << 8
+		crc &= 0xFFFF
+		for _ in range(8):
+			if crc & 0x8000:
+				crc = ((crc << 1) ^ 0x1021) & 0xFFFF
+			else:
+				crc = (crc << 1) & 0xFFFF
+	return crc
 
 
 def build_short_packet(payload: bytes) -> bytes:
-    """Wrap a payload in a VESC short packet."""
-    if len(payload) > 255:
-        raise ValueError("payload too large for a short packet")
-    crc = crc16_xmodem(payload)
-    return bytes([START_SHORT, len(payload), *payload, crc >> 8, crc & 0xFF, END_BYTE])
+	"""Wrap a payload in a VESC short packet."""
+	if len(payload) > 255:
+		raise ValueError("payload too large for a short packet")
+	crc = crc16_xmodem(payload)
+	return bytes([START_SHORT, len(payload), *payload, crc >> 8, crc & 0xFF, END_BYTE])
 
 
 def build_get_values_request() -> bytes:
-    """Framed COMM_GET_VALUES request (constant: 02 01 04 40 84 03)."""
-    return build_short_packet(bytes([COMM_GET_VALUES]))
+	"""Framed COMM_GET_VALUES request (constant: 02 01 04 40 84 03)."""
+	return build_short_packet(bytes([COMM_GET_VALUES]))
 
 
 def build_get_mcconf_request() -> bytes:
-    """Framed COMM_GET_MCCONF request."""
-    return build_short_packet(bytes([COMM_GET_MCCONF]))
+	"""Framed COMM_GET_MCCONF request."""
+	return build_short_packet(bytes([COMM_GET_MCCONF]))
 
 
 class VescPacketizer:
-    """Reassembles complete VESC packets from an arbitrarily chunked byte stream.
+	"""Reassembles complete VESC packets from an arbitrarily chunked byte stream.
 
-    A GET_VALUES response is ~162 bytes and a GET_MCCONF response ~490 bytes; unless a
-    large ATT MTU is negotiated, the controller (or a Bluetooth proxy) splits these
-    across several notifications. ``feed`` buffers everything and yields each complete,
-    CRC-verified payload (each starting with its command-id byte). It resynchronises
-    past junk or a bad CRC rather than wedging.
-    """
+	A GET_VALUES response is ~162 bytes and a GET_MCCONF response ~490 bytes; unless a
+	large ATT MTU is negotiated, the controller (or a Bluetooth proxy) splits these
+	across several notifications. ``feed`` buffers everything and yields each complete,
+	CRC-verified payload (each starting with its command-id byte). It resynchronises
+	past junk or a bad CRC rather than wedging.
+	"""
 
-    def __init__(self) -> None:
-        self._buffer = bytearray()
+	def __init__(self) -> None:
+		self._buffer = bytearray()
 
-    def reset(self) -> None:
-        self._buffer.clear()
+	def reset(self) -> None:
+		_LOGGER.debug("Packetizer reset")
+		self._buffer.clear()
 
-    def feed(self, incoming: bytes) -> Iterator[bytes]:
-        """Feed received bytes; yield every complete payload now extractable."""
-        self._buffer.extend(incoming)
-        if len(self._buffer) > _MAX_BUFFER:
-            _LOGGER.warning("VESC buffer exceeded %d bytes; clearing to resync", _MAX_BUFFER)
-            self._buffer.clear()
-            return
-        while True:
-            payload = self._extract_one()
-            if payload is None:
-                return
-            yield payload
+	def feed(self, incoming: bytes) -> Iterator[bytes]:
+		"""Feed received bytes; yield every complete payload now extractable."""
+		_LOGGER.debug("Packetizer feed incoming_len=%d buffer_before=%d", len(incoming), len(self._buffer))
+		self._buffer.extend(incoming)
+		if len(self._buffer) > _MAX_BUFFER:
+			_LOGGER.warning("VESC buffer exceeded %d bytes; clearing to resync", _MAX_BUFFER)
+			self._buffer.clear()
+			return
+		while True:
+			payload = self._extract_one()
+			if payload is None:
+				_LOGGER.debug("Packetizer no complete payload buffer_after=%d", len(self._buffer))
+				return
+			_LOGGER.debug("Packetizer yielded payload cmd=0x%02x len=%d", payload[0], len(payload))
+			yield payload
 
-    def _extract_one(self) -> bytes | None:
-        buf = self._buffer
-        while True:
-            # Seek a valid start byte.
-            while buf and buf[0] not in (START_SHORT, START_LONG):
-                del buf[0]
-            if not buf:
-                return None
+	def _extract_one(self) -> bytes | None:
+		buf = self._buffer
+		while True:
+			# Seek a valid start byte.
+			while buf and buf[0] not in (START_SHORT, START_LONG):
+				_LOGGER.debug("Packetizer dropping junk byte 0x%02x", buf[0])
+				del buf[0]
+			if not buf:
+				return None
 
-            length_field = 1 if buf[0] == START_SHORT else 2
-            header = 1 + length_field
-            if len(buf) < header:
-                return None
+			length_field = 1 if buf[0] == START_SHORT else 2
+			header = 1 + length_field
+			if len(buf) < header:
+				return None
 
-            if length_field == 1:
-                payload_len = buf[1]
-            else:
-                payload_len = (buf[1] << 8) | buf[2]
+			if length_field == 1:
+				payload_len = buf[1]
+			else:
+				payload_len = (buf[1] << 8) | buf[2]
 
-            total = header + payload_len + 2 + 1  # + crc(2) + end(1)
-            if len(buf) < total:
-                return None
+			total = header + payload_len + 2 + 1  # + crc(2) + end(1)
+			if len(buf) < total:
+				return None
 
-            if buf[total - 1] != END_BYTE:
-                # Misaligned; drop one byte and resync.
-                del buf[0]
-                continue
+			if buf[total - 1] != END_BYTE:
+				_LOGGER.debug("Packetizer bad end byte; dropping one byte to resync")
+				del buf[0]
+				continue
 
-            payload = bytes(buf[header : header + payload_len])
-            recv_crc = (buf[header + payload_len] << 8) | buf[header + payload_len + 1]
-            del buf[:total]  # consume regardless, to keep moving
+			payload = bytes(buf[header: header + payload_len])
+			recv_crc = (buf[header + payload_len] << 8) | buf[header + payload_len + 1]
+			del buf[:total]  # consume regardless, to keep moving
 
-            if recv_crc != crc16_xmodem(payload):
-                _LOGGER.warning("VESC CRC mismatch; dropping frame")
-                continue
+			if recv_crc != crc16_xmodem(payload):
+				_LOGGER.warning("VESC CRC mismatch; dropping frame")
+				continue
 
-            return payload
+			return payload
