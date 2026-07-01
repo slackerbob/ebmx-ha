@@ -27,7 +27,9 @@ async def async_setup_entry(hass: "HomeAssistant", entry: "ConfigEntry") -> bool
 	await coordinator.async_init()
 
 	hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
-	entry.async_on_unload(coordinator.async_start())
+
+	unsubscribe = await coordinator.async_start()
+	entry.async_on_unload(unsubscribe)
 
 	await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 	entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
