@@ -193,7 +193,8 @@ class EbmxCoordinator(ActiveBluetoothDataUpdateCoordinator[EbmxData]):
 			self.last_success_time,
 		)
 
-		self.async_set_updated_data(data)
+		self.data = data
+		self.async_update_listeners()
 		_LOGGER.debug("%s: published updated coordinator data", self.address)
 
 		return data
