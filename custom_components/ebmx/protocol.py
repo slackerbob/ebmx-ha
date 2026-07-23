@@ -26,6 +26,7 @@ START_LONG = 0x03
 END_BYTE = 0x03
 
 # VESC command ids we use.
+COMM_FW_VERSION = 0x00
 COMM_GET_VALUES = 0x04
 COMM_GET_MCCONF = 0x0E
 
@@ -63,6 +64,11 @@ def build_get_values_request() -> bytes:
 def build_get_mcconf_request() -> bytes:
 	"""Framed COMM_GET_MCCONF request."""
 	return build_short_packet(bytes([COMM_GET_MCCONF]))
+
+
+def build_get_fw_version_request() -> bytes:
+	"""Framed COMM_FW_VERSION request (constant: 02 01 00 00 00 03)."""
+	return build_short_packet(bytes([COMM_FW_VERSION]))
 
 
 class VescPacketizer:

@@ -27,7 +27,7 @@ from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 
-from .const import CONF_CELLS, DOMAIN, NUS_SERVICE_UUID
+from .const import CONF_CELLS, CONF_VARIANT, DEFAULT_VARIANT, DOMAIN, NUS_SERVICE_UUID
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -175,11 +175,19 @@ class EbmxOptionsFlow(OptionsFlow):
 	) -> ConfigFlowResult:
 		if user_input is not None:
 			cells = user_input.get(CONF_CELLS)
-			data = {CONF_CELLS: int(cells)} if cells else {}
-			_LOGGER.debug("Options updated for entry_id=%s cells=%s", self.config_entry.entry_id, cells)
+			data: dict[str, Any] = {}
+			if cells:
+				data[CONF_CELLS] = int(cells)
+			if user_input.get(CONF_VARIANT):
+				data[CONF_VARIANT] = user_input[CONF_VARIANT]
+			_LOGGER.debug(
+				"Options updated for entry_id=%s cells=%s variant=%s",
+				self.config_entry.entry_id, cells, user_input.get(CONF_VARIANT),
+			)
 			return self.async_create_entry(title="", data=data)
 
 		current = self.config_entry.options.get(CONF_CELLS, "")
+		current_variant = self.config_entry.options.get(CONF_VARIANT, DEFAULT_VARIANT)
 		return self.async_show_form(
 			step_id="init",
 			data_schema=vol.Schema(
@@ -188,6 +196,10 @@ class EbmxOptionsFlow(OptionsFlow):
 						CONF_CELLS,
 						description={"suggested_value": current},
 					): cv.positive_int,
+					vol.Optional(
+						CONF_VARIANT,
+						description={"suggested_value": current_variant},
+					): vol.In(["Normal", "B", "MX"]),
 				}
 			),
 		)

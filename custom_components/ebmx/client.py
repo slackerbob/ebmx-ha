@@ -13,7 +13,7 @@ from typing import Protocol
 
 from . import protocol
 from .const import NUS_RX_CHAR_UUID, NUS_TX_CHAR_UUID
-from .telemetry import McConfig, Telemetry
+from .telemetry import FirmwareInfo, McConfig, Telemetry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -158,3 +158,20 @@ class EbmxBleClient:
 				config.cut_plausible,
 			)
 		return config
+
+	async def read_fw_version(self, timeout: float = DEFAULT_TIMEOUT) -> FirmwareInfo | None:
+		"""Read the installed firmware identity (COMM_FW_VERSION). None if unavailable."""
+		_LOGGER.debug("Issuing COMM_FW_VERSION")
+		try:
+			payload = await self._request(
+				protocol.build_get_fw_version_request(), protocol.COMM_FW_VERSION, timeout
+			)
+		except (asyncio.TimeoutError, asyncio.CancelledError):
+			_LOGGER.debug("No COMM_FW_VERSION response; firmware version unknown")
+			return None
+		info = FirmwareInfo.decode(payload)
+		if info is None:
+			_LOGGER.debug("Failed to decode COMM_FW_VERSION payload: %s", payload.hex())
+		else:
+			_LOGGER.debug("Firmware: hardware=%s version=%s serial=%s", info.hardware, info.version, info.serial)
+		return info

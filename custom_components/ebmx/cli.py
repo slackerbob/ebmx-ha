@@ -20,6 +20,7 @@ import sys
 from datetime import datetime, timezone
 
 from .client import EbmxBleClient
+from .firmware import FIRMWARE_MANIFEST_URL, is_update_available, parse_manifest
 from .const import NUS_SERVICE_UUID
 from .telemetry import McConfig, estimate_soc_percent
 
@@ -116,10 +117,49 @@ def _emit_json(t, soc, cells, config: McConfig | None) -> None:
     print(json.dumps(obj))
 
 
+
+async def _fw(args: argparse.Namespace) -> int:
+    """Read the installed firmware version and compare with the published manifest."""
+    import urllib.request
+    from bleak import BleakClient
+
+    async with BleakClient(args.address, timeout=20.0) as client:
+        ebmx = EbmxBleClient(client)
+        await ebmx.start()
+        info = await ebmx.read_fw_version()
+        await ebmx.stop()
+
+    if info is None:
+        print("Could not read firmware version from controller.", file=sys.stderr)
+        return 1
+    print(f"Installed: hardware={info.hardware!r} version={info.version!r} serial={info.serial}")
+
+    try:
+        raw = await asyncio.to_thread(
+            lambda: urllib.request.urlopen(FIRMWARE_MANIFEST_URL, timeout=20).read().decode()
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"Could not fetch firmware manifest: {exc}", file=sys.stderr)
+        return 0
+
+    release = parse_manifest(raw, hardware=info.hardware, variant=args.variant)
+    if release is None:
+        print("No matching model/variant in manifest.", file=sys.stderr)
+        return 0
+    available = is_update_available(info.version, release.version)
+    print(f"Latest:    model={release.model!r} variant={release.variant!r} version={release.version!r}")
+    print(f"Update available: {available}")
+    if available:
+        print(f"  {release.bin_url}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="EBMX X-Series standalone reader")
     parser.add_argument("--address", help="Bike Bluetooth MAC address")
     parser.add_argument("--scan", action="store_true", help="Scan for bikes and exit")
+    parser.add_argument("--fw", action="store_true", help="Read firmware version, check for update, and exit")
+    parser.add_argument("--variant", default="Normal", help="Firmware variant to check (Normal/B/MX)")
     parser.add_argument("--json", action="store_true", help="Emit JSON lines on stdout")
     parser.add_argument("--once", action="store_true", help="Read one sample and exit")
     parser.add_argument("--interval", type=float, default=10.0, help="Poll interval (s)")
@@ -135,6 +175,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.scan:
         return asyncio.run(_scan())
+    if args.fw:
+        if not args.address:
+            parser.error("--fw requires --address")
+        return asyncio.run(_fw(args))
     if not args.address:
         parser.error("--address is required (or use --scan)")
 

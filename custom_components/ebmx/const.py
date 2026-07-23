@@ -15,3 +15,8 @@ POLL_INTERVAL_SECONDS = 10
 
 # Config-entry option keys.
 CONF_CELLS = "cells"  # optional series-cell override for the SOC estimate
+
+# Firmware update: which manifest variant to track (e.g. "Normal", "B"). Most X-9000s
+# are "Normal"; expose as an option for the rare B/MX variants.
+CONF_VARIANT = "variant"
+DEFAULT_VARIANT = "Normal"

@@ -29,7 +29,7 @@ from homeassistant.util import dt as dt_util
 from .client import EbmxBleClient
 from .const import CONF_CELLS, DOMAIN, POLL_INTERVAL_SECONDS
 from .models import EbmxData
-from .telemetry import McConfig, estimate_soc_percent
+from .telemetry import FirmwareInfo, McConfig, estimate_soc_percent
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +43,7 @@ class EbmxCoordinator(ActiveBluetoothDataUpdateCoordinator[EbmxData]):
 		self.title: str = entry.title
 		self._cells_override: int | None = entry.options.get(CONF_CELLS)
 		self._config: McConfig | None = None
+		self.fw_info: FirmwareInfo | None = None
 		self.last_success_time = None
 
 		_LOGGER.debug(
@@ -153,6 +154,17 @@ class EbmxCoordinator(ActiveBluetoothDataUpdateCoordinator[EbmxData]):
 			ebmx = EbmxBleClient(client)
 			await ebmx.start()
 			_LOGGER.debug("%s: notification subscription started", self.address)
+
+			if self.fw_info is None:
+				_LOGGER.debug("%s: reading firmware version", self.address)
+				self.fw_info = await ebmx.read_fw_version()
+				if self.fw_info is not None:
+					_LOGGER.debug(
+						"%s: firmware hardware=%s version=%s",
+						self.address,
+						self.fw_info.hardware,
+						self.fw_info.version,
+					)
 
 			if self._config is None:
 				_LOGGER.debug("%s: reading config", self.address)

@@ -152,3 +152,35 @@ OEM BMS's coulomb counting, the controller reports its own voltage estimate
 (**Battery (controller)**), and this integration adds a simple, clearly-labelled
 voltage-based estimate (**Battery (estimate)**). Voltage is the trustworthy number; treat
 the estimate as a gauge, not a fuel reading.
+
+## Firmware update entity
+
+The integration adds an `update` entity per bike that mirrors the firmware-update check in
+the official RideControl app. It reads the **installed** firmware from the controller
+(VESC `COMM_FW_VERSION` → hardware name like `X-9000 V3` and an 8-digit build date like
+`20260107`) and compares it against the **latest** published build in EBMX/CYC's public
+manifest:
+
+```
+https://raw.githubusercontent.com/CYC-EBMX-Development/firmware/main/cyc/firmware.json
+```
+
+The controller's hardware name is matched to the most specific model key in the manifest
+(e.g. `X-9000 V3` in preference to `X-9000`); the variant defaults to `Normal` and can be
+changed per bike in the integration's options (for `B`/`MX` units). The manifest is
+checked once at startup and daily thereafter.
+
+**It is report-only by design.** It shows "update available" plus the version comparison
+and a link to the firmware repo, but it does *not* flash anything — over-the-air VESC
+bootloader flashing can brick a controller on a failed write, so that's left to the
+official app. The `update` entity advertises no `INSTALL` feature, so Home Assistant shows
+the status without an install button.
+
+Verify the firmware read against your bike with the CLI:
+
+```bash
+python -m custom_components.ebmx.cli --address AA:BB:CC:DD:EE:FF --fw
+# Installed: hardware='X-9000 V3' version='20260107' serial=ffffffffffffffffffffffff
+# Latest:    model='X-9000 V3' variant='Normal' version='20260703'
+# Update available: True
+```

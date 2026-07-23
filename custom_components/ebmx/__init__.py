@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from .const import DOMAIN  # noqa: F401  (re-exported for convenience)
 
-PLATFORMS = ["sensor", "binary_sensor"]
+PLATFORMS = ["sensor", "binary_sensor", "update"]
 
 _LOGGER = logging.getLogger(__name__)
 

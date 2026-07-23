@@ -223,3 +223,46 @@ def estimate_soc_percent(
         empty = _DEFAULT_EMPTY_VPC
     pct = (v_cell - empty) / (_FULL_VPC - empty) * 100.0
     return max(0.0, min(100.0, pct))
+
+
+@dataclass(frozen=True)
+class FirmwareInfo:
+    """Installed firmware identity, decoded from a COMM_FW_VERSION response.
+
+    The EBMX controller answers COMM_FW_VERSION with (in order) a couple of binary
+    version bytes, the hardware name as an ASCII string (e.g. "X-9000 V3"), the firmware
+    build as an 8-digit date string (e.g. "20260107"), and the STM32 serial/UUID. Rather
+    than depend on exact offsets (which vary), we pull the printable-ASCII runs out of the
+    payload: the first all-digit 8-char run is the version, the first non-numeric run is
+    the hardware name. This mirrors what the official app logs ("s1=.., s2=..").
+    """
+
+    hardware: str | None
+    version: str | None
+    serial: str | None
+
+    @classmethod
+    def decode(cls, payload: bytes) -> "FirmwareInfo | None":
+        if not payload or payload[0] != protocol.COMM_FW_VERSION:
+            return None
+        data = payload[1:]
+
+        runs: list[str] = []
+        cur = bytearray()
+        for b in data:
+            if 32 <= b < 127:
+                cur.append(b)
+            else:
+                if len(cur) >= 2:
+                    runs.append(cur.decode("ascii"))
+                cur.clear()
+        if len(cur) >= 2:
+            runs.append(cur.decode("ascii"))
+
+        version = next((r for r in runs if r.isdigit() and len(r) == 8), None)
+        hardware = next((r for r in runs if not r.isdigit()), None)
+        # Serial/UUID is the trailing binary block (commonly all 0xFF if unprogrammed).
+        serial = data[-12:].hex() if len(data) >= 12 else None
+        if hardware is None and version is None:
+            return None
+        return cls(hardware=hardware, version=version, serial=serial)

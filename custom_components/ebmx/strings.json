@@ -30,7 +30,8 @@
         "title": "EBMX options",
         "description": "Optionally set the battery's series cell count for the voltage-based state-of-charge estimate. Leave blank to infer it from the controller's voltage cut-off.",
         "data": {
-          "cells": "Series cell count"
+          "cells": "Series cell count",
+          "variant": "Firmware variant (Normal / B)"
         }
       }
     }
@@ -86,6 +87,11 @@
     "binary_sensor": {
       "present": {
         "name": "Present"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware"
       }
     }
   }
